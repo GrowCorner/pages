@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>vPd Chart for Cannabis</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .vpd-table-container {
+            max-width: 90vw; /* Maximale Breite auf 90% der Ansichtshöhe setzen */
+            margin: 0 auto;  /* Zentriert die Tabelle horizontal */
+            overflow-x: auto; /* Ermöglicht horizontales Scrollen, falls nötig */
+        }
+
+        .vpd-table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 10px; /* Kleinere Schriftgröße */
+        }
+
+        .vpd-table td, .vpd-table th {
+            border: 1px solid #ddd;
+            padding: 4px;  /* Kleinere Abstände */
+            text-align: center;
+        }
+
+        /* Farbzuweisungen für VPD */
+        .good-seedling {
+            background-color: lightgreen !important; /* Grün für Keimlinge */
+        }
+
+        .good-vegetative {
+            background-color: mediumseagreen !important; /* Mittelgrün für vegetative Phase */
+        }
+
+        .good-flowering {
+            background-color: darkgreen !important; /* Dunkelgrün für Blütephase */
+        }
+
+        .okay {
+            background-color: #ffff66 !important; /* Hellgelb für OK-Werte */
+        }
+
+        .hover-cell:hover {
+            background-color: #f2f2f2;
+            cursor: pointer;
+        }
+
+        .tooltip-inner {
+            background-color: #000;
+            color: #fff;
+        }
+
+        .tooltip-arrow {
+            border-top-color: #000 !important;
+        }
+    </style>
+</head>
+<body>
+<div class="container mt-4">
+    <h1 class="text-center">vPd Chart for Cannabis</h1>
+    <p class="text-center">Hover over any block to see the temperature, RH, and vPd values, and which phase is best.</p>
+
+    <div class="vpd-table-container">
+        <table class="table table-bordered vpd-table" id="vpd-table">
+            <!-- Table will be populated by JavaScript -->
+        </table>
+    </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+// Berechnung der VPD-Werte
+function calculateVPD(temp, rh) {
+    const es = 0.6108 * Math.exp((17.27 * temp) / (temp + 237.3)); // Sättigungsdampfdruck (in kPa)
+    const ea = es * (rh / 100); // Tatsächlicher Dampfdruck (in kPa)
+    return (es - ea).toFixed(2); // Differenz zwischen Sättigungs- und tatsächlichem Dampfdruck
+}
+
+// Klassifizierung der VPD-Werte
+function classifyVPD(vpd) {
+    const maxBad = 1.8, minBad = 0.4;
+    let intensity, className;
+    if (vpd < minBad) {
+        intensity = 0;
+        className = `rgb(${255},${204},${0})`;
+    } else if (vpd > maxBad) {
+        intensity = 1;
+        className = `rgb(${255},${51},${0})`;
+    } else {
+        intensity = (vpd - minBad) / (maxBad - minBad);
+        const r = Math.round(255 + (255 - 255) * intensity);
+        const g = Math.round(204 + (51 - 204) * intensity);
+        const b = Math.round(0 + (0 - 0) * intensity);
+        className = `rgb(${r},${g},${b})`;
+    }
+
+    if (vpd < 0.4 || vpd > 1.8) {
+        return className;
+    } else if (0.4 <= vpd && vpd <= 0.8) {
+        return 'good-seedling';
+    } else if (0.8 < vpd && vpd <= 1.2) {
+        return 'good-vegetative';
+    } else if (1.2 < vpd && vpd <= 1.8) {
+        return 'good-flowering';
+    } else {
+        return 'okay';
+    }
+}
+
+// Erstellen der Tabelle
+function createVPDTable() {
+    const temperatures = Array.from({length: 28}, (_, i) => i + 8); // Temperaturen von 8°C bis 35°C
+    const humidities = Array.from({length: 101}, (_, i) => 100 - i * 2); // RLF-Werte in 2%-Schritten
+
+    let table = '<thead><tr><th>Temp (°C)</th>';
+    humidities.forEach(rh => {
+        table += `<th>${rh}% RH</th>`;
+    });
+    table += '</tr></thead><tbody>';
+
+    temperatures.forEach(temp => {
+        table += `<tr><td>${temp}°C</td>`;
+        humidities.forEach(rh => {
+            const vpd = calculateVPD(temp, rh);
+            const classification = classifyVPD(vpd);
+            table += `<td class="hover-cell ${classification}" 
+                style="background-color: ${classification.startsWith('rgb') ? classification : ''}" 
+                data-bs-toggle="tooltip" 
+                title="Temp: ${temp}°C, RH: ${rh}%, vPd: ${vpd} (${classification === 'okay' ? 'OK' : 'bad'})">
+                ${vpd}
+            </td>`;
+        });
+        table += '</tr>';
+    });
+    table += '</tbody>';
+
+    document.getElementById('vpd-table').innerHTML = table;
+
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+}
+
+createVPDTable();
+</script>
+</body>
+</html>
